@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FileText, ArrowRight, LogOut, User, Lock, X, Award } from 'lucide-react';
+import { FileText, ArrowRight, LogOut, User, Lock, X, Award, RotateCcw } from 'lucide-react';
 import { useExam } from '../context/ExamContext';
 import { useAuth } from '../context/AuthContext';
 import { useGrade } from '../context/GradeContext';
@@ -111,12 +111,21 @@ export const StudentDashboard = () => {
                   </div>
 
                   {taken ? (
-                    <Link 
-                      to="/student/grades"
-                      className="w-full flex items-center justify-center gap-2 py-3 rounded-lg font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors"
-                    >
-                      Ver Nota
-                    </Link>
+                    <div className="flex gap-2">
+                      <Link 
+                        to="/student/grades"
+                        className="flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors text-sm"
+                      >
+                        Ver Nota
+                      </Link>
+                      <button 
+                        onClick={() => handleStartClick(exam.id)}
+                        className="flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-medium bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors text-sm"
+                        title="Refazer a prova"
+                      >
+                        <RotateCcw size={16} /> Refazer
+                      </button>
+                    </div>
                   ) : (
                     <button 
                       onClick={() => handleStartClick(exam.id)}

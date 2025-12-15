@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Award, Calendar, FileText, X, Eye, CheckCircle2, XCircle, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, Award, Calendar, FileText, X, Eye } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useGrade } from '../context/GradeContext';
 import { useExam } from '../context/ExamContext';
@@ -111,7 +111,7 @@ export const StudentGrades = () => {
                           <button 
                             onClick={() => handleOpenDetails(grade)}
                             className="text-gray-400 hover:text-indigo-600 p-2 rounded-full hover:bg-indigo-50 transition-colors"
-                            title="Ver Gabarito e Detalhes"
+                            title="Ver Detalhes das Notas"
                           >
                             <Eye size={20} />
                           </button>
@@ -126,13 +126,13 @@ export const StudentGrades = () => {
         </div>
       </div>
 
-      {/* Modal de Detalhes (Gabarito) */}
+      {/* Modal de Detalhes (Apenas Notas) */}
       {selectedResult && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
             <div className="bg-indigo-600 p-6 text-white flex justify-between items-start shrink-0">
               <div>
-                <h3 className="text-xl font-bold">Gabarito e Desempenho</h3>
+                <h3 className="text-xl font-bold">Detalhamento de Notas</h3>
                 <p className="text-indigo-100 text-sm mt-1">
                   {getExam(selectedResult.examId)?.title || 'Prova'}
                 </p>
@@ -145,81 +145,51 @@ export const StudentGrades = () => {
               </button>
             </div>
             
-            <div className="p-6 overflow-y-auto bg-gray-50">
-               <div className="space-y-6">
-                 {selectedResult.questionDetails.map((qDetail, idx) => {
-                   const exam = getExam(selectedResult.examId);
-                   const question = exam?.questions.find(q => q.id === qDetail.questionId);
-                   
-                   // Cálculo do percentual final ponderado para esta questão
-                   const p1W = exam?.phase1Weight || 50;
-                   const p2W = exam?.phase2Weight || 50;
-                   const finalPct = ((qDetail.phase1Score * p1W) + (qDetail.phase2Score * p2W)) / 100;
+            <div className="p-0 overflow-y-auto bg-white">
+               <table className="w-full text-left border-collapse">
+                 <thead className="bg-gray-50 sticky top-0">
+                   <tr className="text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-200">
+                     <th className="p-4">Questão</th>
+                     <th className="p-4 text-center text-indigo-700">Fase 1 (%)</th>
+                     <th className="p-4 text-center text-purple-700">Fase 2 (%)</th>
+                     <th className="p-4 text-right text-gray-900">Nota Final (0-10)</th>
+                   </tr>
+                 </thead>
+                 <tbody className="divide-y divide-gray-100">
+                   {selectedResult.questionDetails.map((qDetail, idx) => {
+                     const exam = getExam(selectedResult.examId);
+                     
+                     // Cálculo do percentual final ponderado para esta questão
+                     const p1W = exam?.phase1Weight || 50;
+                     const p2W = exam?.phase2Weight || 50;
+                     const finalPct = ((qDetail.phase1Score * p1W) + (qDetail.phase2Score * p2W)) / 100;
+                     const finalGrade0to10 = (finalPct / 10).toFixed(1);
 
-                   if (!question) return null;
-
-                   return (
-                     <div key={qDetail.questionId} className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-                       {/* Header da Questão */}
-                       <div className="bg-gray-50 p-4 border-b border-gray-100 flex justify-between items-center">
-                          <span className="font-bold text-gray-700">Questão {idx + 1}</span>
-                          <div className="flex gap-3 text-xs font-medium">
-                            <span className="text-indigo-600 bg-indigo-50 px-2 py-1 rounded">Fase 1: {qDetail.phase1Score.toFixed(0)}%</span>
-                            <span className="text-purple-600 bg-purple-50 px-2 py-1 rounded">Fase 2: {qDetail.phase2Score.toFixed(0)}%</span>
-                            <span className={clsx(
-                                "px-2 py-1 rounded",
-                                finalPct >= 70 ? "text-green-700 bg-green-50" : "text-orange-700 bg-orange-50"
-                            )}>
-                                Final: {finalPct.toFixed(0)}%
-                            </span>
-                          </div>
-                       </div>
-
-                       <div className="p-6">
-                          <h4 className="text-lg font-medium text-gray-900 mb-2">{question.title}</h4>
-                          {question.description && <p className="text-gray-600 text-sm mb-4">{question.description}</p>}
-                          
-                          {question.imageUrl && (
-                            <div className="mb-4 rounded-lg overflow-hidden border border-gray-100 bg-gray-50 max-w-md mx-auto">
-                                <img 
-                                src={question.imageUrl} 
-                                alt="Imagem da questão"
-                                className="w-full h-auto object-contain"
-                                />
-                            </div>
-                          )}
-
-                          <div className="space-y-2 mt-4">
-                            {question.alternatives.map((alt) => {
-                                const isCorrect = alt.id === question.correctAlternativeId;
-                                return (
-                                    <div key={alt.id} className={clsx(
-                                        "p-3 rounded-lg border flex items-center justify-between",
-                                        isCorrect 
-                                            ? "bg-green-50 border-green-200 text-green-900" 
-                                            : "bg-white border-gray-100 text-gray-500"
-                                    )}>
-                                        <span className="text-sm font-medium">{alt.text}</span>
-                                        {isCorrect && (
-                                            <span className="flex items-center gap-1 text-xs font-bold text-green-600 bg-white px-2 py-1 rounded-full shadow-sm">
-                                                <CheckCircle2 size={14} /> Resposta Correta
-                                            </span>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                          </div>
-                       </div>
-                     </div>
-                   );
-                 })}
-               </div>
+                     return (
+                       <tr key={qDetail.questionId} className="hover:bg-gray-50">
+                         <td className="p-4 font-medium text-gray-700">
+                           Questão {idx + 1}
+                         </td>
+                         <td className="p-4 text-center text-gray-600">
+                           {qDetail.phase1Score.toFixed(0)}%
+                         </td>
+                         <td className="p-4 text-center text-gray-600">
+                           {qDetail.phase2Score.toFixed(0)}%
+                         </td>
+                         <td className="p-4 text-right font-bold text-gray-900">
+                           {finalGrade0to10}
+                         </td>
+                       </tr>
+                     );
+                   })}
+                 </tbody>
+               </table>
             </div>
             
-            <div className="p-4 border-t border-gray-100 flex justify-end shrink-0 bg-white">
+            <div className="p-4 border-t border-gray-100 flex justify-end shrink-0 bg-gray-50">
               <button
                 onClick={handleCloseDetails}
-                className="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg font-medium transition-colors"
+                className="px-6 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg font-medium transition-colors shadow-sm"
               >
                 Fechar
               </button>
