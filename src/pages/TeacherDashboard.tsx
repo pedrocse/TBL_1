@@ -1,40 +1,57 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, Trash2, FileText, ArrowRight, Calendar, LogOut, User, UserX, PlayCircle, PauseCircle, Key, Lock, Unlock } from 'lucide-react';
+import { Plus, Trash2, FileText, ArrowRight, Calendar, LogOut, User, PlayCircle, PauseCircle, Key, Lock, Unlock, FileBarChart, Percent } from 'lucide-react';
 import { useExam } from '../context/ExamContext';
 import { useAuth } from '../context/AuthContext';
 import { clsx } from 'clsx';
 
 export const TeacherDashboard = () => {
   const { exams, createExam, deleteExam, toggleExamPublication, togglePhase2Release } = useExam();
-  const { user, logout, deleteAccount } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   
   const [isCreating, setIsCreating] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
+  
+  // Novos estados para peso na criação
+  const [weightP1, setWeightP1] = useState(70);
+  const [weightP2, setWeightP2] = useState(30);
+
+  const handleWeightP1Change = (val: number) => {
+    const newP1 = Math.min(100, Math.max(0, val));
+    setWeightP1(newP1);
+    setWeightP2(100 - newP1);
+  };
+
+  const handleWeightP2Change = (val: number) => {
+    const newP2 = Math.min(100, Math.max(0, val));
+    setWeightP2(newP2);
+    setWeightP1(100 - newP2);
+  };
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim()) return;
     
-    const id = createExam(newTitle, newDesc);
+    if (weightP1 + weightP2 !== 100) {
+        alert("A soma dos pesos deve ser 100%");
+        return;
+    }
+
+    const id = createExam(newTitle, newDesc, weightP1, weightP2);
     setIsCreating(false);
     setNewTitle('');
     setNewDesc('');
+    // Reseta para o padrão sugerido pelo usuário
+    setWeightP1(70);
+    setWeightP2(30);
     navigate(`/teacher/exam/${id}`);
   };
 
   const handleLogout = () => {
     logout();
     navigate('/login');
-  };
-
-  const handleDeleteAccount = () => {
-    if (window.confirm('Tem certeza que deseja excluir sua conta? Esta ação não pode ser desfeita.')) {
-      deleteAccount();
-      navigate('/login');
-    }
   };
 
   return (
@@ -65,13 +82,6 @@ export const TeacherDashboard = () => {
               <LogOut size={18} />
               Sair
             </button>
-            <button 
-              onClick={handleDeleteAccount}
-              className="flex items-center gap-2 bg-red-50 text-red-600 px-4 py-2 rounded-lg hover:bg-red-100 transition-colors border border-red-100"
-              title="Excluir Conta"
-            >
-              <UserX size={18} />
-            </button>
           </div>
         </div>
 
@@ -80,28 +90,72 @@ export const TeacherDashboard = () => {
           <div className="mb-8 bg-white p-6 rounded-xl shadow-md border border-indigo-100 animate-fade-in">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">Criar Nova Prova</h3>
             <form onSubmit={handleCreate} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Título da Prova</label>
-                <input 
-                  type="text" 
-                  value={newTitle}
-                  onChange={e => setNewTitle(e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                  placeholder="Ex: Prova de Matemática - 1º Bimestre"
-                  autoFocus
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="col-span-full">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Título da Prova</label>
+                  <input 
+                    type="text" 
+                    value={newTitle}
+                    onChange={e => setNewTitle(e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Ex: Prova de Matemática - 1º Bimestre"
+                    autoFocus
+                  />
+                </div>
+                <div className="col-span-full">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
+                  <input 
+                    type="text" 
+                    value={newDesc}
+                    onChange={e => setNewDesc(e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Breve descrição sobre o conteúdo..."
+                  />
+                </div>
+
+                {/* Configuração de Pesos na Criação */}
+                <div className="col-span-full bg-gray-50 p-4 rounded-lg border border-gray-200 mt-2">
+                    <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                      <Percent size={16} /> Distribuição de Pesos (Nota Final)
+                    </h3>
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1">
+                        <label className="block text-xs font-medium text-gray-500 mb-1">Fase 1 (Certeza)</label>
+                        <div className="relative">
+                          <input 
+                            type="number" 
+                            min="0" max="100"
+                            value={weightP1}
+                            onChange={e => handleWeightP1Change(parseInt(e.target.value) || 0)}
+                            className="w-full p-2 pr-8 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 font-bold text-indigo-700"
+                          />
+                          <span className="absolute right-3 top-2 text-gray-400 font-bold">%</span>
+                        </div>
+                      </div>
+                      <div className="text-gray-400 font-bold pt-6">+</div>
+                      <div className="flex-1">
+                        <label className="block text-xs font-medium text-gray-500 mb-1">Fase 2 (TBL)</label>
+                        <div className="relative">
+                          <input 
+                            type="number" 
+                            min="0" max="100"
+                            value={weightP2}
+                            onChange={e => handleWeightP2Change(parseInt(e.target.value) || 0)}
+                            className="w-full p-2 pr-8 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 font-bold text-purple-700"
+                          />
+                          <span className="absolute right-3 top-2 text-gray-400 font-bold">%</span>
+                        </div>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">
+                      Total: <span className={clsx("font-bold", weightP1 + weightP2 === 100 ? "text-green-600" : "text-red-500")}>
+                        {weightP1 + weightP2}%
+                      </span>
+                    </p>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
-                <input 
-                  type="text" 
-                  value={newDesc}
-                  onChange={e => setNewDesc(e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                  placeholder="Breve descrição sobre o conteúdo..."
-                />
-              </div>
-              <div className="flex justify-end gap-3">
+
+              <div className="flex justify-end gap-3 pt-2">
                 <button 
                   type="button"
                   onClick={() => setIsCreating(false)}
@@ -111,9 +165,9 @@ export const TeacherDashboard = () => {
                 </button>
                 <button 
                   type="submit"
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium"
                 >
-                  Criar e Editar
+                  Criar Prova
                 </button>
               </div>
             </form>
@@ -154,6 +208,12 @@ export const TeacherDashboard = () => {
                   </div>
                   <p className="text-gray-600 text-sm mb-4 line-clamp-2 mt-2">{exam.description || 'Sem descrição.'}</p>
                   
+                  {/* Pesos */}
+                  <div className="flex items-center gap-2 text-xs text-gray-500 mb-3 bg-gray-100 p-2 rounded-lg">
+                    <Percent size={12} />
+                    <span>Pesos: F1 <strong>{exam.phase1Weight}%</strong> / F2 <strong>{exam.phase2Weight}%</strong></span>
+                  </div>
+
                   {/* Área da Senha */}
                   {exam.isPublished && exam.accessCode && (
                     <div className="bg-green-50 border border-green-100 rounded-lg p-3 mb-4 flex items-center justify-between">
@@ -180,12 +240,20 @@ export const TeacherDashboard = () => {
                 </div>
 
                 <div className="space-y-3">
-                  <Link 
-                    to={`/teacher/exam/${exam.id}`}
-                    className="w-full flex items-center justify-center gap-2 bg-white border border-indigo-200 text-indigo-700 py-2 rounded-lg font-medium hover:bg-indigo-50 transition-colors"
-                  >
-                    Editar Questões <ArrowRight size={16} />
-                  </Link>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Link 
+                      to={`/teacher/exam/${exam.id}`}
+                      className="flex items-center justify-center gap-2 bg-white border border-indigo-200 text-indigo-700 py-2 rounded-lg font-medium hover:bg-indigo-50 transition-colors text-sm"
+                    >
+                      Editar <ArrowRight size={14} />
+                    </Link>
+                    <Link 
+                      to={`/teacher/exam/${exam.id}/report`}
+                      className="flex items-center justify-center gap-2 bg-indigo-50 border border-indigo-200 text-indigo-700 py-2 rounded-lg font-medium hover:bg-indigo-100 transition-colors text-sm"
+                    >
+                      <FileBarChart size={14} /> Relatório
+                    </Link>
+                  </div>
 
                   {/* Botão de Publicar/Ocultar */}
                   <button 

@@ -1,10 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import clsx from 'clsx';
-import { FileText, ArrowLeft, CheckCircle2, ArrowRight, Trophy, Lock, RefreshCw, ShieldCheck, Percent } from 'lucide-react';
+import { FileText, ArrowLeft, ArrowRight, Trophy, Lock, RefreshCw, ShieldCheck } from 'lucide-react';
 import { useExam } from '../context/ExamContext';
+import { useAuth } from '../context/AuthContext';
+import { useGrade } from '../context/GradeContext';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { ExamPhaseWeights } from '../components/ExamPhaseWeights';
 import { ExamPhaseTBL } from '../components/ExamPhaseTBL';
+import { QuestionResult } from '../types';
 
 type ExamPhase = 'WEIGHTS' | 'WEIGHTS_RESULT' | 'TBL' | 'TBL_RESULT';
 
@@ -12,6 +15,8 @@ export const StudentExam = () => {
   const { examId } = useParams();
   const navigate = useNavigate();
   const { getExam, refreshExams } = useExam();
+  const { user } = useAuth();
+  const { saveResult, hasStudentTakenExam } = useGrade();
   
   const exam = getExam(examId || '');
   const [phase, setPhase] = useState<ExamPhase>('WEIGHTS');
@@ -21,6 +26,9 @@ export const StudentExam = () => {
   
   // State Fase 2
   const [tblScores, setTblScores] = useState<Record<string, number>>({});
+  
+  // Controle de salvamento para evitar loops
+  const [isSaved, setIsSaved] = useState(false);
 
   useEffect(() => {
     if (!exam) {
@@ -29,15 +37,77 @@ export const StudentExam = () => {
   }, [examId]);
 
   useEffect(() => {
-      const timer = setTimeout(() => {
-         if (!getExam(examId || '')) {
-             navigate('/student');
-         }
-      }, 1000);
-      return () => clearTimeout(timer);
+    const timer = setTimeout(() => {
+        if (!getExam(examId || '')) {
+            navigate('/student');
+        }
+    }, 1000);
+    return () => clearTimeout(timer);
   }, [examId, getExam, navigate]);
 
-  if (!exam) return (
+  // Verifica se o aluno já fez a prova
+  useEffect(() => {
+    if (user && examId && hasStudentTakenExam(user.id, examId) && !isSaved) {
+       // Lógica opcional de redirecionamento se já fez
+    }
+  }, [user, examId, hasStudentTakenExam, isSaved]);
+
+  // --- Cálculos de Resultado (Memoized) ---
+  const results = useMemo(() => {
+    if (!exam || exam.questions.length === 0) return null;
+
+    let totalPercentageSumP1 = 0;
+    let totalScoreP2 = 0;
+    let maxPossibleP2 = 0;
+    const questionDetails: QuestionResult[] = [];
+
+    exam.questions.forEach(q => {
+      // Fase 1 Calc
+      const userDistribution = weightAnswers[q.id] || {};
+      const pointsOnCorrect = userDistribution[q.correctAlternativeId] || 0;
+      const percentageP1 = (pointsOnCorrect / q.totalPoints) * 100;
+      totalPercentageSumP1 += percentageP1;
+
+      // Fase 2 Calc
+      const scoreP2 = tblScores[q.id] || 0;
+      totalScoreP2 += scoreP2;
+      maxPossibleP2 += q.totalPoints;
+
+      questionDetails.push({
+        questionId: q.id,
+        phase1Score: percentageP1,
+        phase2Score: (scoreP2 / q.totalPoints) * 100,
+        maxPoints: q.totalPoints
+      });
+    });
+
+    const p1Score = totalPercentageSumP1 / exam.questions.length;
+    const p2Score = maxPossibleP2 > 0 ? (totalScoreP2 / maxPossibleP2) * 100 : 0;
+    
+    const p1Weight = exam.phase1Weight;
+    const p2Weight = exam.phase2Weight;
+    const finalGrade = ((p1Score * p1Weight) + (p2Score * p2Weight)) / 100;
+
+    return { p1Score, p2Score, finalGrade, questionDetails };
+  }, [exam, weightAnswers, tblScores]);
+
+  // --- Efeito para Salvar Resultado ---
+  useEffect(() => {
+    if (phase === 'TBL_RESULT' && !isSaved && results && user && exam) {
+      saveResult({
+        examId: exam.id,
+        studentId: user.id,
+        studentName: user.name,
+        phase1TotalScore: results.p1Score,
+        phase2TotalScore: results.p2Score,
+        finalScore: results.finalGrade,
+        questionDetails: results.questionDetails
+      });
+      setIsSaved(true);
+    }
+  }, [phase, isSaved, results, user, exam, saveResult]);
+
+  if (!exam || !user) return (
       <div className="min-h-screen flex items-center justify-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
       </div>
@@ -61,30 +131,6 @@ export const StudentExam = () => {
     window.scrollTo(0, 0);
   };
 
-  // --- Cálculos de Resultado ---
-  const calculateWeightResults = () => {
-    let totalPercentageSum = 0;
-    const results = questions.map(q => {
-      const userDistribution = weightAnswers[q.id] || {};
-      const pointsOnCorrect = userDistribution[q.correctAlternativeId] || 0;
-      const percentage = (pointsOnCorrect / q.totalPoints) * 100;
-      totalPercentageSum += percentage;
-      return { question: q, pointsOnCorrect, percentage, userDistribution };
-    });
-    return { results, averageScore: totalPercentageSum / questions.length };
-  };
-
-  const calculateTBLResults = () => {
-    let totalScore = 0;
-    let maxPossible = 0;
-    questions.forEach(q => {
-        totalScore += tblScores[q.id] || 0;
-        maxPossible += q.totalPoints;
-    });
-    const percentage = (totalScore / maxPossible) * 100;
-    return { totalScore, maxPossible, percentage };
-  };
-
   // --- Renderização Condicional ---
 
   if (questions.length === 0) {
@@ -101,23 +147,18 @@ export const StudentExam = () => {
 
   // RESULTADO FINAL (COMPARATIVO)
   if (phase === 'TBL_RESULT') {
-    const weightRes = calculateWeightResults();
-    const tblRes = calculateTBLResults();
+    const { p1Score, p2Score, finalGrade } = results || { p1Score: 0, p2Score: 0, finalGrade: 0 };
 
-    // Cálculo Ponderado Final
-    const p1Score = weightRes.averageScore;
-    const p2Score = tblRes.percentage;
-    const p1Weight = exam.phase1Weight;
-    const p2Weight = exam.phase2Weight;
-    
-    const finalGrade = ((p1Score * p1Weight) + (p2Score * p2Weight)) / 100;
+    const displayP1 = p1Score;
+    const displayP2 = p2Score;
+    const displayFinal = finalGrade;
 
     return (
       <div className="min-h-screen bg-gray-50 py-8 px-4">
         <div className="max-w-5xl mx-auto space-y-8">
           <div className="text-center">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Parabéns! Você concluiu a prova.</h1>
-            <p className="text-gray-600">Confira seu desempenho detalhado abaixo.</p>
+            <p className="text-gray-600">Sua nota foi registrada com sucesso.</p>
           </div>
 
           {/* Placar Principal */}
@@ -125,10 +166,10 @@ export const StudentExam = () => {
             <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-8 text-white text-center">
               <h2 className="text-2xl font-bold mb-2">Nota Final Ponderada</h2>
               <div className="text-6xl font-extrabold tracking-tight mb-2">
-                {finalGrade.toFixed(1)}%
+                {(displayFinal / 10).toFixed(1)} <span className="text-2xl font-medium opacity-70">/ 10</span>
               </div>
               <p className="text-indigo-100 text-sm">
-                Cálculo: (Fase 1 × {p1Weight}%) + (Fase 2 × {p2Weight}%)
+                Cálculo: (Fase 1 × {exam.phase1Weight}%) + (Fase 2 × {exam.phase2Weight}%)
               </p>
             </div>
             
@@ -139,11 +180,11 @@ export const StudentExam = () => {
                   <FileText size={24} />
                 </div>
                 <h3 className="text-lg font-bold text-gray-800 mb-1">Fase 1: Certeza</h3>
-                <p className="text-xs text-gray-500 mb-4 uppercase tracking-wide font-bold">Peso: {p1Weight}%</p>
+                <p className="text-xs text-gray-500 mb-4 uppercase tracking-wide font-bold">Peso: {exam.phase1Weight}%</p>
                 <div className="text-4xl font-bold text-indigo-600 mb-2">
-                  {p1Score.toFixed(0)}%
+                  {(displayP1 / 10).toFixed(1)}
                 </div>
-                <span className="text-sm text-gray-500">Aproveitamento</span>
+                <span className="text-sm text-gray-500">Nota (0-10)</span>
               </div>
 
               {/* Card Fase 2 */}
@@ -152,21 +193,27 @@ export const StudentExam = () => {
                   <Trophy size={24} />
                 </div>
                 <h3 className="text-lg font-bold text-gray-800 mb-1">Fase 2: TBL</h3>
-                <p className="text-xs text-gray-500 mb-4 uppercase tracking-wide font-bold">Peso: {p2Weight}%</p>
+                <p className="text-xs text-gray-500 mb-4 uppercase tracking-wide font-bold">Peso: {exam.phase2Weight}%</p>
                 <div className="text-4xl font-bold text-purple-600 mb-2">
-                  {p2Score.toFixed(0)}%
+                  {(displayP2 / 10).toFixed(1)}
                 </div>
-                <span className="text-sm text-gray-500">Aproveitamento</span>
+                <span className="text-sm text-gray-500">Nota (0-10)</span>
               </div>
             </div>
           </div>
 
-          <div className="flex justify-center pt-8">
+          <div className="flex justify-center gap-4 pt-8">
             <Link 
               to="/student" 
-              className="flex items-center gap-2 px-8 py-3 bg-gray-800 text-white rounded-xl hover:bg-gray-900 transition-colors font-medium"
+              className="flex items-center gap-2 px-6 py-3 bg-gray-200 text-gray-800 rounded-xl hover:bg-gray-300 transition-colors font-medium"
             >
-              <ArrowLeft size={18} /> Voltar para Lista de Provas
+              <ArrowLeft size={18} /> Voltar ao Início
+            </Link>
+            <Link 
+              to="/student/grades" 
+              className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors font-medium shadow-md"
+            >
+               Ver Minhas Notas <ArrowRight size={18} />
             </Link>
           </div>
         </div>

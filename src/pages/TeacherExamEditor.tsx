@@ -161,13 +161,16 @@ export const TeacherExamEditor = () => {
                   {exam.title}
                   <button 
                     onClick={() => setShowSettings(!showSettings)}
-                    className="text-gray-400 hover:text-indigo-600 transition-colors"
+                    className="text-indigo-600 hover:text-indigo-800 transition-colors bg-indigo-50 p-1.5 rounded-lg flex items-center gap-1 text-sm font-medium"
                     title="Configurações da Prova"
                   >
-                    <Settings size={20} />
+                    <Settings size={18} />
+                    Configurar Pesos
                   </button>
                 </h1>
-                <p className="text-sm text-gray-500">{exam.questions.length} questões criadas</p>
+                <p className="text-sm text-gray-500">
+                  {exam.questions.length} questões • Pesos: {exam.phase1Weight}% / {exam.phase2Weight}%
+                </p>
             </div>
           </div>
         </div>

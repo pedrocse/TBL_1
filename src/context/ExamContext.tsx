@@ -4,9 +4,9 @@ import { v4 as uuidv4 } from 'uuid';
 
 interface ExamContextType {
   exams: Exam[];
-  createExam: (title: string, description: string) => string;
+  createExam: (title: string, description: string, p1Weight: number, p2Weight: number) => string;
   deleteExam: (id: string) => void;
-  updateExamMetadata: (id: string, data: Partial<Exam>) => void; // Nova função
+  updateExamMetadata: (id: string, data: Partial<Exam>) => void;
   addQuestionToExam: (examId: string, question: Question) => void;
   deleteQuestionFromExam: (examId: string, questionId: string) => void;
   getExam: (id: string) => Exam | undefined;
@@ -27,7 +27,7 @@ export const ExamProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const parsed = JSON.parse(storedExams).map((e: any) => ({
         ...e,
         createdAt: new Date(e.createdAt),
-        // Garante compatibilidade com exames antigos que não tinham pesos
+        // Garante compatibilidade com exames antigos
         phase1Weight: e.phase1Weight ?? 50,
         phase2Weight: e.phase2Weight ?? 50
       }));
@@ -55,7 +55,7 @@ export const ExamProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const createExam = (title: string, description: string) => {
+  const createExam = (title: string, description: string, p1Weight: number, p2Weight: number) => {
     const newExam: Exam = {
       id: uuidv4(),
       title,
@@ -64,8 +64,8 @@ export const ExamProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       questions: [],
       isPublished: false,
       isPhase2Released: false,
-      phase1Weight: 50, // Padrão 50%
-      phase2Weight: 50  // Padrão 50%
+      phase1Weight: p1Weight,
+      phase2Weight: p2Weight
     };
     setExams(prev => [...prev, newExam]);
     return newExam.id;

@@ -22,7 +22,6 @@ export interface Exam {
   isPublished: boolean;
   accessCode?: string;
   isPhase2Released?: boolean;
-  // Novos campos de peso
   phase1Weight: number; // Porcentagem (0-100)
   phase2Weight: number; // Porcentagem (0-100)
 }
@@ -30,6 +29,26 @@ export interface Exam {
 export interface Answer {
   questionId: string;
   distribution: Record<string, number>;
+}
+
+// Novos tipos para Resultados
+export interface QuestionResult {
+  questionId: string;
+  phase1Score: number; // Pontos obtidos na fase 1
+  phase2Score: number; // Pontos obtidos na fase 2
+  maxPoints: number;
+}
+
+export interface ExamResult {
+  id: string;
+  examId: string;
+  studentId: string;
+  studentName: string;
+  submittedAt: string; // ISO Date
+  phase1TotalScore: number; // 0-100%
+  phase2TotalScore: number; // 0-100%
+  finalScore: number; // Ponderado
+  questionDetails: QuestionResult[];
 }
 
 export type UserRole = 'student' | 'teacher' | 'admin';
