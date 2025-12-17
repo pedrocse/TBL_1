@@ -365,7 +365,7 @@ export const TeacherExamEditor = () => {
                               src={imageUrl} 
                               alt="Preview" 
                               className="max-w-full max-h-full object-contain"
-                              onError={(e) => (e.currentTarget.src = 'https://img-wrapper.vercel.app/image?url=https://img-wrapper.vercel.app/image?url=https://placehold.co/600x400?text=Erro+na+Imagem')}
+                              onError={(e) => (e.currentTarget.src = 'https://img-wrapper.vercel.app/image?url=https://img-wrapper.vercel.app/image?url=https://img-wrapper.vercel.app/image?url=https://placehold.co/600x400?text=Erro+na+Imagem')}
                             />
                           </div>
                         </div>
